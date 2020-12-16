@@ -111,11 +111,6 @@ impl<'c> Counts<'c> {
             } else {
                 Regex::new("").unwrap()
             };
-            let re_test = if let Some(kw) = count.lang.test_keyword() {
-                Regex::new(&*format!("(.*?)([:^word:]{}[:^word:])(.*)", kw)).unwrap()
-            } else {
-                Regex::new("").unwrap()
-            };
             for file in count.files.iter() {
                 debugln!("iter; file={:?};", file);
                 let mut buffer = String::new();
@@ -339,12 +334,12 @@ impl<'c> Counts<'c> {
         let mut w = TabWriter::new(vec![]);
         cli_try!(write!(
             w,
-            "\tLanguage\tFiles\tLines\tBlanks\tComments\tCode{}\tTests\n",
+            "\tLanguage\tFiles\tLines\tBlanks\tComments\tCode\tTests{}\n",
             if self.cfg.usafe { "\tUnsafe (%)" } else { "" }
         ));
         cli_try!(write!(
             w,
-            "\t--------\t-----\t-----\t------\t--------\t----{}\t-----\n",
+            "\t--------\t-----\t-----\t------\t--------\t----\t-----{}\n",
             if self.cfg.usafe { "\t----------" } else { "" }
         ));
         for count in &self.counts {
@@ -376,18 +371,19 @@ impl<'c> Counts<'c> {
         }
         cli_try!(write!(
             w,
-            "\t--------\t-----\t-----\t------\t--------\t----{}\n",
+            "\t--------\t-----\t-----\t------\t--------\t----\t----{}\n",
             if self.cfg.usafe { "\t----------" } else { "" }
         ));
         cli_try!(write!(
             w,
-            "{}\t\t{}\t{}\t{}\t{}\t{}{}\n",
+            "{}\t\t{}\t{}\t{}\t{}\t{}\t{}{}\n",
             "Totals:",
             fmt::format_number(self.tot as u64, self.cfg.thousands),
             fmt::format_number(self.tot_lines, self.cfg.thousands),
             fmt::format_number(self.tot_blanks, self.cfg.thousands),
             fmt::format_number(self.tot_comments, self.cfg.thousands),
             fmt::format_number(self.tot_code, self.cfg.thousands),
+            fmt::format_number(self.tot_tests, self.cfg.thousands),
             if self.cfg.usafe {
                 format!(
                     "\t{} ({:.2}%)",
@@ -433,9 +429,4 @@ impl<'c> Counts<'c> {
         }
         b
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 }
