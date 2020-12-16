@@ -14,6 +14,7 @@ pub struct Count {
     pub files: Vec<PathBuf>,
     pub code: u64,
     pub comments: u64,
+    pub tests: u64,
     pub blanks: u64,
     pub lines: u64,
     pub usafe: u64,
@@ -27,6 +28,7 @@ impl Count {
             files: vec![],
             code: 0,
             comments: 0,
+            tests: 0,
             blanks: 0,
             lines: 0,
             usafe: 0,
@@ -58,6 +60,10 @@ impl Count {
         fmt::format_number(self.comments, self.sep)
     }
 
+    pub fn tests(&self) -> String {
+        fmt::format_number(self.tests, self.sep)
+    }
+
     pub fn total_files(&self) -> String {
         fmt::format_number(self.files.len() as u64, self.sep)
     }
@@ -74,13 +80,14 @@ impl StdFmt::Display for Count {
     fn fmt(&self, f: &mut StdFmt::Formatter) -> StdFmt::Result {
         write!(
             f,
-            "{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             self.lang,
             self.total_files(),
             self.lines(),
             self.blanks(),
             self.comments(),
-            self.code()
+            self.code(),
+            self.tests(),
         )
     }
 }

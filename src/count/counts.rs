@@ -21,6 +21,7 @@ pub struct Counts<'c> {
     tot: usize,
     tot_lines: u64,
     tot_comments: u64,
+    tot_tests: u64,
     tot_blanks: u64,
     tot_code: u64,
     tot_usafe: u64,
@@ -34,6 +35,7 @@ impl<'c> Counts<'c> {
             tot: 0,
             tot_lines: 0,
             tot_comments: 0,
+            tot_tests: 0,
             tot_blanks: 0,
             tot_code: 0,
             tot_usafe: 0,
@@ -109,6 +111,11 @@ impl<'c> Counts<'c> {
             } else {
                 Regex::new("").unwrap()
             };
+            let re_test = if let Some(kw) = count.lang.test_keyword() {
+                Regex::new(&*format!("(.*?)([:^word:]{}[:^word:])(.*)", kw)).unwrap()
+            } else {
+                Regex::new("").unwrap()
+            };
             for file in count.files.iter() {
                 debugln!("iter; file={:?};", file);
                 let mut buffer = String::new();
@@ -132,7 +139,10 @@ impl<'c> Counts<'c> {
                 }
                 let mut is_in_comments = false;
                 let mut is_in_unsafe = false;
+                let mut is_in_test = false;
+                let mut test_keyword_seen = false;
                 let mut bracket_count: i64 = 0;
+                let mut test_bracket_count: i64 = 0;
 
                 'new_line: for line in buffer.lines() {
                     let line = line.trim();
@@ -191,6 +201,56 @@ impl<'c> Counts<'c> {
                         }
                     } else {
                         debugln!("No single line comments for this type");
+                    }
+
+                    if count.lang.test_keyword().is_some() {
+                        debugln!("Calculating test statistics");
+                        debugln!("line={:?}", line);
+                        if is_in_test {
+                            count.tests += 1;
+                            debugln!("we are in a test");
+                            is_in_test = test_bracket_count > 0;
+                            debugln!(
+                                "after counting brackets; is_in_test ={:?}; \
+                                          test_bracket_count={:?}",
+                                          is_in_test,
+                                          test_bracket_count
+                                );
+                        } else if test_keyword_seen {
+                            debugln!("We just saw the test keyword on the previous line");
+                            count.tests += 1;
+                            test_bracket_count = Counts::count_brackets(line, Some(test_bracket_count));
+                            // After this line, we're still in a test if there's
+                            // still some open bracket
+                            is_in_test = test_bracket_count > 0;
+                            debugln!(
+                                "after counting brackets; is_in_test ={:?}; \
+                                          test_bracket_count={:?}",
+                                          is_in_test,
+                                          test_bracket_count
+                                );
+                            test_keyword_seen = false;
+                        //} else if re_test.is_match(line) {
+                        } else if line.starts_with(count.lang.test_keyword().unwrap()) {
+                            debugln!("There's the test keyword");
+                            count.tests += 1;
+                            test_bracket_count = Counts::count_brackets(line, Some(test_bracket_count));
+                            // There usually aren't any brackets on #[cfg(test)] lines
+                            // but there might.
+                            test_keyword_seen = test_bracket_count >= 0;
+                            debugln!(
+                                "after counting brackets; test_keyword_seen ={:?}; \
+                                          test_bracket_count={:?}",
+                                          test_keyword_seen,
+                                          test_bracket_count
+                                );
+                        }
+
+                        // odd, but unsafe does this too
+                        if test_bracket_count < 0 {
+                            debugln!("test_bracket_count < 0; resetting");
+                            test_bracket_count = 0
+                        }
                     }
 
                     if self.cfg.usafe && count.lang.is_unsafe() {
@@ -266,6 +326,7 @@ impl<'c> Counts<'c> {
             self.tot += count.files.len();
             self.tot_lines += count.lines;
             self.tot_comments += count.comments;
+            self.tot_tests += count.tests;
             self.tot_blanks += count.blanks;
             self.tot_code += count.code;
             self.tot_usafe += count.usafe;
@@ -278,12 +339,12 @@ impl<'c> Counts<'c> {
         let mut w = TabWriter::new(vec![]);
         cli_try!(write!(
             w,
-            "\tLanguage\tFiles\tLines\tBlanks\tComments\tCode{}\n",
+            "\tLanguage\tFiles\tLines\tBlanks\tComments\tCode{}\tTests\n",
             if self.cfg.usafe { "\tUnsafe (%)" } else { "" }
         ));
         cli_try!(write!(
             w,
-            "\t--------\t-----\t-----\t------\t--------\t----{}\n",
+            "\t--------\t-----\t-----\t------\t--------\t----{}\t-----\n",
             if self.cfg.usafe { "\t----------" } else { "" }
         ));
         for count in &self.counts {
@@ -295,13 +356,14 @@ impl<'c> Counts<'c> {
                 };
                 cli_try!(write!(
                     w,
-                    "\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                    "\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                     count.lang.name(),
                     count.total_files(),
                     count.lines(),
                     count.blanks(),
                     count.comments(),
                     count.code(),
+                    count.tests(),
                     if (usafe_per - 00f64).abs() < f64::EPSILON {
                         "".to_owned()
                     } else {
@@ -371,4 +433,9 @@ impl<'c> Counts<'c> {
         }
         b
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }

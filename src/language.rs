@@ -99,6 +99,13 @@ impl Language {
             _ => None,
         }
     }
+
+    pub fn test_keyword(&self) -> Option<&str> {
+        match *self {
+            Language::Rust => Some("#[cfg(test)]"),
+            _ => None,
+        }
+    }
 }
 
 impl StdFmt::Display for Language {
